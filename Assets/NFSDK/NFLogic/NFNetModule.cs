@@ -8,6 +8,7 @@ using Google.Protobuf;
 using UnityEngine;
 using NFSDK;
 using NFMsg;
+using pbr = global::Google.Protobuf.Reflection;
 
 namespace NFrame
 {
@@ -40,9 +41,39 @@ namespace NFrame
         {
         }
 
-		public override void Init()
+        public static Dictionary<int, string> msgIdToName = new Dictionary<int, string>();
+
+        public static Dictionary<int, string> GenerateIdToKeyMap<T>() where T : Enum
+        {
+            Dictionary<int, string> idToKeyMap = new Dictionary<int, string>();
+            T[] values = (T[])Enum.GetValues(typeof(T));
+            foreach (T value in values)
+            {
+                int id = Convert.ToInt32(value);
+                string key = GetIdAttributeValue(value);
+                idToKeyMap[id] = key + "_" + id;
+            }
+            return idToKeyMap;
+        }
+
+        private static string GetIdAttributeValue<T>(T value) where T : Enum
+        {
+            Type enumType = typeof(T);
+            string name = Enum.GetName(enumType, value);
+            var field = enumType.GetField(name);
+            var attribute = field.GetCustomAttributes(typeof(pbr.OriginalNameAttribute), false) as pbr.OriginalNameAttribute[];
+            return attribute[0].Name;
+        }
+
+        public override void Init()
 		{
-		}
+            msgIdToName = GenerateIdToKeyMap<EGameMsgID>();
+            //var msgs = Enum.GetValues(typeof(EGameMsgID));
+            //foreach(var msg in msgs)
+            //{
+            //    msgIdToName.Add((int)msg, GetIdAttributeValue(msg));
+            //}
+        }
 
         public override void Execute()
         {
@@ -119,6 +150,7 @@ namespace NFrame
 
         public void SendMsg(int unMsgID)
         {
+            Debug.Log("[NET] send message:" + msgIdToName[unMsgID]);
 
             if (mNetClient != null)
             {
@@ -144,13 +176,16 @@ namespace NFrame
 
         public void SendMsg(int unMsgID, MemoryStream stream)
         {
-            //Debug.Log("send message:" + unMsgID);
 
             if (mNetClient != null)
             {
                 //NFMsg.MsgBase
                 mxData.PlayerId = mHelpModule.NFToPB(mLoginModule.mRoleID);
                 mxData.MsgData = ByteString.CopyFrom(stream.ToArray());
+
+                stream.Position = 0;
+                var msg = NFMsg.MsgBase.Parser.ParseFrom(stream.ToArray());
+                Debug.Log($"[NET] send message:{msgIdToName[unMsgID]} {msg.ToString()}");
 
                 mxBody.SetLength(0);
                 mxData.WriteTo(mxBody);
@@ -556,7 +591,7 @@ namespace NFrame
             NFMsg.PosSyncUnit posSyncUnit = new PosSyncUnit();
             posSyncUnit.Mover = mHelpModule.NFToPB(objectID);
             posSyncUnit.Pos = new NFMsg.Vector3();
-            posSyncUnit.Pos.X = vPos.x;
+            posSyncUnit.Pos.X = vPos.x; 
             posSyncUnit.Pos.Y = vPos.y;
             posSyncUnit.Pos.Z = vPos.z;
             posSyncUnit.Status = nType;

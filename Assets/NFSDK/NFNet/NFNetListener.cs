@@ -13,6 +13,7 @@ using System.Threading;
 using System.Linq;
 using System.Text;
 using UnityEngine;
+using System.Runtime.InteropServices.ComTypes;
 
 namespace NFSDK
 {
@@ -210,6 +211,10 @@ namespace NFSDK
 
 		private void OnMessageEvent(MsgHead head, MemoryStream ms)
         {
+			ms.Position = 0;
+            NFMsg.MsgBase xMsg = NFMsg.MsgBase.Parser.ParseFrom(ms);
+            Debug.Log($"[NET] OnReceive {NFrame.NFNetModule.msgIdToName[head.unMsgID]} {xMsg.ToString()}");
+
             if (mhtMsgDelegation.ContainsKey(head.unMsgID))
             {
                 MsgDelegation myDelegationHandler = (MsgDelegation)mhtMsgDelegation[head.unMsgID];
